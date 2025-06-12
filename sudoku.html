@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        #sudoku-container {
+            display: grid;
+            grid-template-columns: repeat(9, 50px);
+            grid-template-rows: repeat(9, 50px);
+            gap: 0;
+            background-color: #34495e;
+            padding: 3px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .cell {
+            width: 50px;
+            height: 50px;
+            background-color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-sizing: border-box;
+            position: relative;
+            border: 1px solid #ddd;
+        }
+        
+        /* Separar bloques 3x3 con bordes más definidos */
+        /* Bordes horizontales gruesos entre bloques 3x3 */
+        .cell:nth-child(n+28):nth-child(-n+36), 
+        .cell:nth-child(n+55):nth-child(-n+63) {
+            border-top: 2px solid #34495e;
+        }
+        
+        /* Bordes verticales gruesos entre bloques 3x3 */
+        .cell:nth-child(3n+4):not(:nth-child(n+82)),
+        .cell:nth-child(3n+7):not(:nth-child(n+82)) {
+            border-left: 2px solid #34495e;
+        }
+        
+        /* Asegurar el borde externo completo */
+        .cell:nth-child(n):nth-child(-n+9) {
+            border-top: 2px solid #34495e;
+        }
+        
+        .cell:nth-child(n+73):nth-child(-n+81) {
+            border-bottom: 2px solid #34495e;
+        }
+        
+        .cell:nth-child(9n+1) {
+            border-left: 2px solid #34495e;
+        }
+        
+        .cell:nth-child(9n) {
+            border-right: 2px solid #34495e;
+        }
+        
+        .cell input {
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            font-size: 22px;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: #2c3e50;
+            cursor: pointer;
+        }
+        
+        .cell input[readonly] {
+            background-color: #ecf0f1;
+            color: #2980b9;
+            font-weight: bold;
+            cursor: default;
+        }
+        
+        .cell input:focus {
+            background-color: #e8f4fc;
+        }
+        
+        .cell input:hover:not([readonly]) {
+            background-color: #f5f9ff;
+        }
+        
+        #timer {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            font-weight: bold;
+            padding: 10px 20px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        #message {
+            font-size: 22px;
+            color: #27ae60;
+            background-color: #e8f8f5;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: none;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Botones para control del juego */
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Modelos de regresión y diseño de experimentos - Ejercicio Sudoku</h1>
+    <p>Objetivo: Resolver el sudoku y registrar tu tiempo de finalización. Analicemos ¿Por qué tipos de variables se ve afectado el tiempo de solución?</p>
+    <div id="timer">Tiempo: 00:00</div>
+    <div id="sudoku-container"></div>
+    <div id="message">¡Sudoku completado!</div>
+    <div class="controls">
+        <button id="new-game">Nuevo Juego</button>
+        <button id="check">Comprobar</button>
+        <button id="solve" disabled>Resolver</button>
+    </div>
+    <footer>
+        <p>Desarrollado por Julián Uribe Gómez</p>
+
+    <script>
+        // Sudoku más fácil (solución y tablero inicial)
+        const solution = [
+            [5,3,4,6,7,8,9,1,2],
+            [6,7,2,1,9,5,3,4,8],
+            [1,9,8,3,4,2,5,6,7],
+            [8,5,9,7,6,1,4,2,3],
+            [4,2,6,8,5,3,7,9,1],
+            [7,1,3,9,2,4,8,5,6],
+            [9,6,1,5,3,7,2,8,4],
+            [2,8,7,4,1,9,6,3,5],
+            [3,4,5,2,8,6,1,7,9]
+        ];
+
+        const initialBoard = [
+            [5,3,4,0,7,0,9,0,0],
+            [6,0,0,1,9,5,0,0,0],
+            [0,9,8,0,0,0,0,6,0],
+            [8,0,0,7,6,1,0,0,3],
+            [4,0,0,8,5,3,0,0,1],
+            [7,0,0,9,2,4,0,0,6],
+            [0,6,0,0,0,0,2,8,0],
+            [0,0,0,4,1,9,0,0,5],
+            [0,0,5,0,8,0,0,7,9]
+        ];
+
+        let startTime, timerInterval;
+
+        // Crear el tablero
+        function createBoard() {
+            const container = document.getElementById('sudoku-container');
+            container.innerHTML = ''; // Limpiar el contenedor
+            
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.maxLength = 1;
+                    if (initialBoard[i][j] !== 0) {
+                        input.value = initialBoard[i][j];
+                        input.setAttribute('readonly', true);
+                    }
+                    input.addEventListener('input', () => {
+                        input.value = input.value.replace(/[^1-9]/g, '');
+                        checkSudoku();
+                    });
+                    cell.appendChild(input);
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        // Iniciar el cronómetro
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        // Actualizar el cronómetro
+        function updateTimer() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const seconds = (elapsed % 60).toString().padStart(2, '0');
+            document.getElementById('timer').textContent = `Tiempo: ${minutes}:${seconds}`;
+        }
+
+        // Detener el cronómetro
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        // Verificar si el Sudoku está correctamente resuelto
+        function checkSudoku() {
+            const inputs = document.querySelectorAll('.cell input');
+            let correct = true;
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    const index = i * 9 + j;
+                    const value = inputs[index].value;
+                    if (value && parseInt(value) !== solution[i][j]) {
+                        correct = false;
+                        break;
+                    }
+                }
+                if (!correct) break;
+            }
+
+            // Verificar si todas las celdas están llenas
+            let allFilled = true;
+            inputs.forEach(input => {
+                if (!input.value) allFilled = false;
+            });
+
+            if (correct && allFilled) {
+                stopTimer();
+                document.getElementById('message').style.display = 'block';
+                inputs.forEach(input => input.setAttribute('readonly', true));
+            }
+        }
+
+        // Inicializar el juego
+        createBoard();
+        startTimer();
+        
+        // Eventos para los botones (nuevas funcionalidades)
+        document.getElementById('new-game').addEventListener('click', () => {
+            stopTimer();
+            document.getElementById('message').style.display = 'none';
+            createBoard();
+            startTimer();
+        });
+        
+        document.getElementById('check').addEventListener('click', () => {
+            const inputs = document.querySelectorAll('.cell input');
+            let hasError = false;
+            
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    const index = i * 9 + j;
+                    const value = inputs[index].value;
+                    if (value && parseInt(value) !== solution[i][j]) {
+                        inputs[index].style.color = 'red';
+                        hasError = true;
+                    } else if (value) {
+                        inputs[index].style.color = '#2c3e50';
+                    }
+                }
+            }
+            
+            if (!hasError) {
+                checkSudoku(); // Verificar si está completo
+            }
+        });
+        
+        document.getElementById('solve').addEventListener('click', () => {
+            stopTimer();
+            const inputs = document.querySelectorAll('.cell input');
+            
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    const index = i * 9 + j;
+                    if (!inputs[index].hasAttribute('readonly')) {
+                        inputs[index].value = solution[i][j];
+                        inputs[index].style.color = '#27ae60';
+                    }
+                }
+            }
+            
+            document.getElementById('message').style.display = 'block';
+        });
+    </script>
+</body>
+</html>
